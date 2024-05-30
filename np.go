@@ -1,6 +1,8 @@
 package main
 
 import (
+	"bytes"
+	"bufio"
 	"fmt"
 	"log"
 	// "errors"
@@ -9,7 +11,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
-	"rsocket_json_requests"
+	"github.com/bcosso/rsocket_json_requests"
 	"strconv"
 	"strings"
 )
@@ -110,10 +112,16 @@ func main() {
 	root, err := ioutil.ReadAll(configfile)
 	json.Unmarshal(root, &configs)
 
+	if len(os.Args)  < 2 {
+		startShell()
+		return
+	}
+
 	parse_rsock()
 }
 
 func parse() {
+
 	switch os.Args[1] {
 	case "load":
 		load_mem_table()
@@ -133,13 +141,44 @@ func parse() {
 			return
 		}
 		break
+	case "":
+		startShell()
+		break
 	}
+	
+
+}
+
+
+func startShell(){
+	reader := bufio.NewReader(os.Stdin)
+	fmt.Println("-------------------------------------------")
+	fmt.Println("Nimpha Shell")
+	fmt.Println("-------------------------------------------")
+
+	for {
+		fmt.Print("nimpha> ")
+		text, _:= reader.ReadString('\n')
+    // convert CRLF to LF
+    	text = strings.Replace(text, "\n", "", -1)
+		text = strings.Replace(text, "\r", "", -1)
+		if strings.Index(text, "command") == 0 {
+			testConcurrency()
+		}else{
+			arr := []string{"", "", text}
+			query_data_rsock(arr, "")
+		}
+	}
+
 }
 
 func parse_rsock() {
 	switch os.Args[1] {
 	case "load":
 		load_mem_table_rsock()
+		break
+	case "concurrency":
+		testConcurrency()
 		break
 	case "select":
 		select_data_rsock(os.Args)
@@ -162,7 +201,7 @@ func parse_rsock() {
 			return
 		}
 	case "query":
-		query_data_rsock(os.Args)
+		query_data_rsock(os.Args, "")
 		break
 	}
 }
@@ -186,7 +225,7 @@ func load_mem_table_rsock() {
 
 	//fmt.Println(jsonMap)
 	_port, _ := strconv.Atoi(configs.Instance_port)
-	rsocket_json_requests.RequestConfigs("127.0.0.1", _port)
+	rsocket_json_requests.RequestConfigs("localhost", _port)
 	result, err1 := rsocket_json_requests.RequestJSON("/"+configs.Instance_name+"/load_mem_table", jsonMap)
 	if err1 != nil {
 		fmt.Println(err1)
@@ -215,7 +254,7 @@ func select_contains_rsock(querystring []string) {
 
 	fmt.Println(jsonMap)
 	_port, _ := strconv.Atoi(configs.Instance_port)
-	rsocket_json_requests.RequestConfigs("127.0.0.1", _port)
+	rsocket_json_requests.RequestConfigs("localhost", _port)
 	result, err1 := rsocket_json_requests.RequestJSON("/"+configs.Instance_name+"/select_data_where_worker_contains", jsonMap)
 	if err1 != nil {
 		fmt.Println(err1)
@@ -248,7 +287,7 @@ func select_data_rsock(querystring []string) {
 
 	fmt.Println(jsonMap)
 	_port, _ := strconv.Atoi(configs.Instance_port)
-	rsocket_json_requests.RequestConfigs("127.0.0.1", _port)
+	rsocket_json_requests.RequestConfigs("localhost", _port)
 	result, err1 := rsocket_json_requests.RequestJSON("/"+configs.Instance_name+"/select_data", jsonMap)
 	if err1 != nil {
 		fmt.Println(err1)
@@ -298,8 +337,9 @@ func insert_data_rsock(querystring []string) {
 
 	fmt.Println(jsonMap)
 	_port, _ := strconv.Atoi(configs.Instance_port)
-	rsocket_json_requests.RequestConfigs("127.0.0.1", _port)
-	result, err1 := rsocket_json_requests.RequestJSON("/"+configs.Instance_name+"/insert", jsonStr)
+	rsocket_json_requests.RequestConfigs("localhost", _port)
+	// result, err1 := rsocket_json_requests.RequestJSON("/"+configs.Instance_name+"/insert", jsonStr)
+	result, err1 := rsocket_json_requests.RequestJSON("/"+configs.Instance_name+"/insert_data", jsonStr)
 	if err1 != nil {
 		fmt.Println(err1)
 	}
@@ -330,7 +370,7 @@ func delete_data_rsock(querystring []string) {
 
 	fmt.Println(jsonMap)
 	_port, _ := strconv.Atoi(configs.Instance_port)
-	rsocket_json_requests.RequestConfigs("127.0.0.1", _port)
+	rsocket_json_requests.RequestConfigs("localhost", _port)
 	result, err1 := rsocket_json_requests.RequestJSON("/"+configs.Instance_name+"/delete_data_where", jsonMap)
 	if err1 != nil {
 		fmt.Println(err1)
@@ -340,7 +380,7 @@ func delete_data_rsock(querystring []string) {
 }
 
 
-func query_data_rsock(querystring []string) {
+func query_data_rsock(querystring []string, outputFile string) {
 	//var rows interface{}
 	//url := "http://" + configs.Instance_ip + ":"  + configs.Instance_port + "/" + configs.Instance_name + "/select_data?" + querystring
 
@@ -349,24 +389,99 @@ func query_data_rsock(querystring []string) {
 	"query":"%s"
 	}
 	`
+
+	// fmt.Println("tessssssst")
 	jsonStr = fmt.Sprintf(jsonStr, strings.Join(querystring[2:], " "))
 
-	fmt.Println(jsonStr)
-
+	// fmt.Println(jsonStr)
+	// fmt.Println("tessssssst")
 	jsonMap := make(map[string]interface{})
+	fmt.Println("tttttttt")
+
 	err := json.Unmarshal([]byte(jsonStr), &jsonMap)
 
 	if err != nil {
+		fmt.Println(err)
 		panic(err)
 	}
-
 	fmt.Println(jsonMap)
-	_port, _ := strconv.Atoi(configs.Instance_port)
-	rsocket_json_requests.RequestConfigs("127.0.0.1", _port)
+	// fmt.Println(jsonMap)
+	_port, erro := strconv.Atoi(configs.Instance_port)
+	if erro != nil {
+		fmt.Println(erro)
+		panic(erro)
+	}
+	fmt.Println(_port)
+	rsocket_json_requests.RequestConfigs("localhost", _port)
+	fmt.Println(_port)
 	result, err1 := rsocket_json_requests.RequestJSON("/"+configs.Instance_name+"/execute_query", jsonMap)
 	if err1 != nil {
 		fmt.Println(err1)
 	}
-	fmt.Println(result)
+	var jsonMapResult []map[string]interface{}
+	
+	intermediate_inteface := result.([]interface{})
+	json_rows_bytes, _ := json.Marshal(intermediate_inteface)
+	
+	//fmt.Println(intermediate_inteface)
+	reader := bytes.NewReader(json_rows_bytes)
+
+	dec := json.NewDecoder(reader)
+	dec.DisallowUnknownFields()
+
+	errDec := dec.Decode(&jsonMapResult)
+	if errDec != nil {
+		log.Fatal(errDec)
+	}
+
+	outputText := ""
+	for _, rows := range jsonMapResult {
+
+		// m is a map[string]interface.
+		// loop over keys and values in the map.
+		for name, document := range rows {
+			if (name == "Rows"){
+				m := document.(map[string]interface{})
+				for k, v := range m {
+					fmt.Println(k, ":", v)
+					outputText += "\n" + string(k) + ":" + v.(string)
+				}
+			}
+		}
+	}
+	if outputFile != ""{
+		// d1 := []byte(outputText)
+		f, err0 := os.Create(outputFile)
+		if err0 != nil {
+			fmt.Println(err0)
+		}
+	   
+		n, err0 := f.WriteString(outputText)
+		if err0 != nil {
+			fmt.Println(err0)
+		//  log.Fatal(err0)
+		}
+		fmt.Printf("wrote %d bytes\n", n)
+		f.Sync()
+	}
+	// fmt.Println(result)
 
 }
+
+func testConcurrency(){
+	fmt.Println("Concurrency Test")
+	textQuery := []string{"select client_address, client_number from table3 where client_number < 10000", "select client_address, client_number from table3 where client_number > 91000"}
+	arr := []string{"", "", textQuery[0]}
+	arr2 := []string{"", "", textQuery[1]}
+	go query_data_rsock(arr, "1")
+	go query_data_rsock(arr2, "2")
+}
+
+//select table1.name_client from table1, tableadress where  table1.client_number > 1
+//select table1.name_client from table1, tableadress where  table1.client_number > 1
+
+// .\np.exe query "select table1.name_client, tableaddress.client_address from table1, tableaddress where table1.client_number = tableaddress.client_number and table1.client_number > 1"
+
+
+// select tab1.client_address, tab2.client_name from table3 as tab1, tableclient as tab2 where tab1.client_number = tab2.client_number
+// select tab1.client_address, tab2.client_name from tableclient as tab2, table3 as tab1 where tab1.client_number = tab2.client_number
