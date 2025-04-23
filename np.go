@@ -1,19 +1,21 @@
 package main
 
 import (
-	"bytes"
 	"bufio"
+	"bytes"
 	"fmt"
 	"log"
+
 	// "errors"
 	"encoding/json"
 	"io/ioutil"
 	"net/http"
 	"os"
 	"os/exec"
-	"github.com/bcosso/rsocket_json_requests"
 	"strconv"
 	"strings"
+
+	"github.com/bcosso/rsocket_json_requests"
 )
 
 type config struct {
@@ -112,7 +114,7 @@ func main() {
 	root, err := ioutil.ReadAll(configfile)
 	json.Unmarshal(root, &configs)
 
-	if len(os.Args)  < 2 {
+	if len(os.Args) < 2 {
 		startShell()
 		return
 	}
@@ -145,12 +147,10 @@ func parse() {
 		startShell()
 		break
 	}
-	
 
 }
 
-
-func startShell(){
+func startShell() {
 	reader := bufio.NewReader(os.Stdin)
 	fmt.Println("-------------------------------------------")
 	fmt.Println("Nimpha Shell")
@@ -158,13 +158,13 @@ func startShell(){
 
 	for {
 		fmt.Print("nimpha> ")
-		text, _:= reader.ReadString('\n')
-    // convert CRLF to LF
-    	text = strings.Replace(text, "\n", "", -1)
+		text, _ := reader.ReadString('\n')
+		// convert CRLF to LF
+		text = strings.Replace(text, "\n", "", -1)
 		text = strings.Replace(text, "\r", "", -1)
 		if strings.Index(text, "command") == 0 {
 			testConcurrency()
-		}else{
+		} else {
 			arr := []string{"", "", text}
 			query_data_rsock(arr, "")
 		}
@@ -203,7 +203,11 @@ func parse_rsock() {
 	case "query":
 		query_data_rsock(os.Args, "")
 		break
+	case "addnode":
+		addNode(os.Args)
+		break
 	}
+
 }
 
 func load_mem_table_rsock() {
@@ -347,6 +351,50 @@ func insert_data_rsock(querystring []string) {
 
 }
 
+func getArgumentValue(argumentName string, arguments []string) (string, error) {
+	for indexArg, arg := range arguments {
+		if arg == argumentName {
+			return arguments[indexArg+1], nil
+		}
+	}
+	newError := fmt.Errorf(argumentName + " - Not found in  the arguments")
+	return "", newError
+}
+
+func addNode(querystring []string) {
+
+	var jsonStr = `
+	{
+	"node":{"name":"%s", "ip":"%s", "port":"%s"},
+	"operation":"%s"
+	}
+	`
+
+	port, _ := getArgumentValue("-port", querystring)
+	name, _ := getArgumentValue("-name", querystring)
+	hostname, _ := getArgumentValue("-hostname", querystring)
+
+	jsonStr = fmt.Sprintf(jsonStr, name, hostname, port, "add_node")
+	fmt.Println(jsonStr)
+
+	jsonMap := make(map[string]interface{})
+	err := json.Unmarshal([]byte(jsonStr), &jsonMap)
+
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println(jsonMap)
+	_port, _ := strconv.Atoi(configs.Instance_port)
+	rsocket_json_requests.RequestConfigs("localhost", _port)
+	result, err1 := rsocket_json_requests.RequestJSON("/"+configs.Instance_name+"/update_configuration", jsonMap)
+	if err1 != nil {
+		fmt.Println(err1)
+	}
+	fmt.Println(result)
+
+}
+
 func delete_data_rsock(querystring []string) {
 
 	var jsonStr = `
@@ -378,7 +426,6 @@ func delete_data_rsock(querystring []string) {
 	fmt.Println(result)
 
 }
-
 
 func query_data_rsock(querystring []string, outputFile string) {
 	//var rows interface{}
@@ -419,10 +466,10 @@ func query_data_rsock(querystring []string, outputFile string) {
 		fmt.Println(err1)
 	}
 	var jsonMapResult []map[string]interface{}
-	
+
 	intermediate_inteface := result.([]interface{})
 	json_rows_bytes, _ := json.Marshal(intermediate_inteface)
-	
+
 	//fmt.Println(intermediate_inteface)
 	reader := bytes.NewReader(json_rows_bytes)
 
@@ -440,26 +487,28 @@ func query_data_rsock(querystring []string, outputFile string) {
 		// m is a map[string]interface.
 		// loop over keys and values in the map.
 		for name, document := range rows {
-			if (name == "Rows"){
+			if name == "Rows" {
 				m := document.(map[string]interface{})
 				for k, v := range m {
 					fmt.Println(k, ":", v)
-					outputText += "\n" + string(k) + ":" + v.(string)
+					// result
+					// if reflect.TypeOf(v) == reflect.TypeOf()
+					// outputText += "\n" + string(k) + ":" + v.(string)
 				}
 			}
 		}
 	}
-	if outputFile != ""{
+	if outputFile != "" {
 		// d1 := []byte(outputText)
 		f, err0 := os.Create(outputFile)
 		if err0 != nil {
 			fmt.Println(err0)
 		}
-	   
+
 		n, err0 := f.WriteString(outputText)
 		if err0 != nil {
 			fmt.Println(err0)
-		//  log.Fatal(err0)
+			//  log.Fatal(err0)
 		}
 		fmt.Printf("wrote %d bytes\n", n)
 		f.Sync()
@@ -468,7 +517,7 @@ func query_data_rsock(querystring []string, outputFile string) {
 
 }
 
-func testConcurrency(){
+func testConcurrency() {
 	fmt.Println("Concurrency Test")
 	textQuery := []string{"select client_address, client_number from table3 where client_number < 10000", "select client_address, client_number from table3 where client_number > 91000"}
 	arr := []string{"", "", textQuery[0]}
@@ -481,7 +530,6 @@ func testConcurrency(){
 //select table1.name_client from table1, tableadress where  table1.client_number > 1
 
 // .\np.exe query "select table1.name_client, tableaddress.client_address from table1, tableaddress where table1.client_number = tableaddress.client_number and table1.client_number > 1"
-
 
 // select tab1.client_address, tab2.client_name from table3 as tab1, tableclient as tab2 where tab1.client_number = tab2.client_number
 // select tab1.client_address, tab2.client_name from tableclient as tab2, table3 as tab1 where tab1.client_number = tab2.client_number
