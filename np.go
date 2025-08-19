@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"fmt"
 	"log"
+	"time"
 
 	// "errors"
 	"encoding/json"
@@ -106,6 +107,9 @@ func select_data(querystring string) {
 }
 
 func main() {
+
+	result := 1 / 2
+	fmt.Println(result)
 	configfile, err := os.Open("configfile.json")
 	if err != nil {
 		log.Fatal(err)
@@ -187,6 +191,9 @@ func parse_rsock() {
 	case "select_contains":
 		select_contains_rsock(os.Args)
 		break
+	case "select_between":
+		select_data_between(os.Args)
+		break
 	case "insert":
 		insert_data_rsock(os.Args)
 		break
@@ -205,6 +212,9 @@ func parse_rsock() {
 		break
 	case "addnode":
 		addNode(os.Args)
+		break
+	case "addindex":
+		addIndex(os.Args)
 		break
 	}
 
@@ -293,6 +303,41 @@ func select_data_rsock(querystring []string) {
 	_port, _ := strconv.Atoi(configs.Instance_port)
 	rsocket_json_requests.RequestConfigs("localhost", _port)
 	result, err1 := rsocket_json_requests.RequestJSON("/"+configs.Instance_name+"/select_data", jsonMap)
+	if err1 != nil {
+		fmt.Println(err1)
+	}
+	fmt.Println(result)
+
+}
+
+func select_data_between(querystring []string) {
+	//var rows interface{}
+	//url := "http://" + configs.Instance_ip + ":"  + configs.Instance_port + "/" + configs.Instance_name + "/select_data?" + querystring
+
+	var jsonStr = `
+	{
+	"table":"%s",
+	"where_field_from":"%s",
+	"where_content_from":"%s",
+	"where_field_to":"%s",
+	"where_content_to":"%s"
+	}
+	`
+	jsonStr = fmt.Sprintf(jsonStr, querystring[2], querystring[3], querystring[4], querystring[3], querystring[5])
+
+	fmt.Println(jsonStr)
+
+	jsonMap := make(map[string]interface{})
+	err := json.Unmarshal([]byte(jsonStr), &jsonMap)
+
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println(jsonMap)
+	_port, _ := strconv.Atoi(configs.Instance_port)
+	rsocket_json_requests.RequestConfigs("localhost", _port)
+	result, err1 := rsocket_json_requests.RequestJSON("/"+configs.Instance_name+"/select_data_where_worker_between_rsocket", jsonMap)
 	if err1 != nil {
 		fmt.Println(err1)
 	}
@@ -395,6 +440,40 @@ func addNode(querystring []string) {
 
 }
 
+func addIndex(querystring []string) {
+
+	var jsonStr = `
+	{
+	"index":{"table_name":"%s", "column_name":"%s", "index_type":"%s"},
+	"operation":"%s"
+	}
+	`
+
+	table, _ := getArgumentValue("-table", querystring)
+	column, _ := getArgumentValue("-column", querystring)
+	typeName, _ := getArgumentValue("-type", querystring)
+
+	jsonStr = fmt.Sprintf(jsonStr, table, column, typeName, "add_index")
+	fmt.Println(jsonStr)
+
+	jsonMap := make(map[string]interface{})
+	err := json.Unmarshal([]byte(jsonStr), &jsonMap)
+
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println(jsonMap)
+	_port, _ := strconv.Atoi(configs.Instance_port)
+	rsocket_json_requests.RequestConfigs("localhost", _port)
+	result, err1 := rsocket_json_requests.RequestJSON("/"+configs.Instance_name+"/update_configuration", jsonMap)
+	if err1 != nil {
+		fmt.Println(err1)
+	}
+	fmt.Println(result)
+
+}
+
 func delete_data_rsock(querystring []string) {
 
 	var jsonStr = `
@@ -461,10 +540,13 @@ func query_data_rsock(querystring []string, outputFile string) {
 	fmt.Println(_port)
 	rsocket_json_requests.RequestConfigs("localhost", _port)
 	fmt.Println(_port)
+	first := time.Now()
 	result, err1 := rsocket_json_requests.RequestJSON("/"+configs.Instance_name+"/execute_query", jsonMap)
 	if err1 != nil {
 		fmt.Println(err1)
 	}
+	second := time.Now().Sub(first)
+	fmt.Println(second)
 	var jsonMapResult []map[string]interface{}
 
 	intermediate_inteface := result.([]interface{})
