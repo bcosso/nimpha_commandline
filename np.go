@@ -157,6 +157,9 @@ func startShell() {
 	fmt.Println("Nimpha Shell")
 	fmt.Println("-------------------------------------------")
 
+	_port, _ := strconv.Atoi(configs.Instance_port)
+	rsocket_json_requests.InitConn(configs.Instance_name, configs.Instance_ip, _port)
+
 	for {
 		fmt.Print("nimpha> ")
 		text, _ := reader.ReadString('\n')
@@ -164,7 +167,46 @@ func startShell() {
 		text = strings.Replace(text, "\n", "", -1)
 		text = strings.Replace(text, "\r", "", -1)
 		if strings.Index(text, "command") == 0 {
-			testConcurrency()
+			args := strings.Split(text, " ")
+			//testConcurrency()
+			switch args[1] {
+			case "load":
+				load_mem_table_rsock()
+				break
+			case "concurrency":
+				testConcurrency()
+				break
+			case "select":
+				select_data_rsock(args)
+				//fmt.Println(os.Args[2])
+				break
+			case "select_contains":
+				select_contains_rsock(args)
+				break
+			case "insert":
+				insert_data_rsock(args)
+				break
+			case "delete":
+				delete_data_rsock(args)
+				break
+			case "start":
+				cmd := exec.Command("nimpha.exe")
+				err := cmd.Start()
+				if err != nil {
+					fmt.Println(err.Error())
+					return
+				}
+			case "query":
+				query_data_rsock(args, "")
+				break
+			case "procedure":
+				procedure_data_rsock(args, "")
+				break
+
+			case "addnode":
+				addNode(args)
+				break
+			}
 		} else {
 			arr := []string{"", "", text}
 			query_data_rsock(arr, "")
@@ -295,9 +337,8 @@ func select_data_rsock(querystring []string) {
 	oldTIme := time.Now()
 
 	fmt.Println(jsonMap)
-	_port, _ := strconv.Atoi(configs.Instance_port)
-	rsocket_json_requests.RequestConfigs("localhost", _port)
-	result, err1 := rsocket_json_requests.RequestJSON("/"+configs.Instance_name+"/select_data_where_worker_equals_rsocket", jsonMap)
+
+	result, err1 := rsocket_json_requests.RequestJSONNew("/"+configs.Instance_name+"/select_data_where_worker_equals_rsocket", jsonMap, configs.Instance_name)
 	if err1 != nil {
 		fmt.Println(err1)
 	}
@@ -472,7 +513,7 @@ func query_data_rsock(querystring []string, outputFile string) {
 
 	oldTIme := time.Now()
 
-	result, err1 := rsocket_json_requests.RequestJSON("/"+configs.Instance_name+"/execute_query", jsonMap)
+	result, err1 := rsocket_json_requests.RequestJSONNew("/"+configs.Instance_name+"/execute_query", jsonMap, configs.Instance_name)
 	if err1 != nil {
 		fmt.Println(err1)
 	}
