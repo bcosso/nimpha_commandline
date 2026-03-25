@@ -185,6 +185,14 @@ func parse_rsock() {
 		select_data_rsock(os.Args)
 		//fmt.Println(os.Args[2])
 		break
+	case "select_table":
+		select_table(os.Args)
+		//fmt.Println(os.Args[2])
+		break
+	case "insert_json":
+		insert_json(os.Args)
+		//fmt.Println(os.Args[2])
+		break
 	case "select_contains":
 		select_contains_rsock(os.Args)
 		break
@@ -208,6 +216,9 @@ func parse_rsock() {
 		procedure_data_rsock(os.Args, "")
 		break
 
+	case "schema":
+		schema_rsock(os.Args)
+		break
 	case "addnode":
 		addNode(os.Args)
 		break
@@ -352,6 +363,64 @@ func insert_data_rsock(querystring []string) {
 	rsocket_json_requests.RequestConfigs("localhost", _port)
 	// result, err1 := rsocket_json_requests.RequestJSON("/"+configs.Instance_name+"/insert", jsonStr)
 	result, err1 := rsocket_json_requests.RequestJSON("/"+configs.Instance_name+"/insert_data", jsonStr)
+	if err1 != nil {
+		fmt.Println(err1)
+	}
+	fmt.Println(result)
+
+}
+
+func select_table(querystring []string) {
+	//var rows interface{}
+	//url := "http://" + configs.Instance_ip + ":"  + configs.Instance_port + "/" + configs.Instance_name + "/select_data?" + querystring
+
+	var jsonStr = `
+	{
+	"table":"%s",
+	"alias":""
+	}
+	`
+	jsonStr = fmt.Sprintf(jsonStr, querystring[2])
+
+	fmt.Println(jsonStr)
+
+	jsonMap := make(map[string]interface{})
+	err := json.Unmarshal([]byte(jsonStr), &jsonMap)
+
+	if err != nil {
+		panic(err)
+	}
+	oldTIme := time.Now()
+
+	fmt.Println(jsonMap)
+	_port, _ := strconv.Atoi(configs.Instance_port)
+	rsocket_json_requests.RequestConfigs("localhost", _port)
+	result, err1 := rsocket_json_requests.RequestJSON("/"+configs.Instance_name+"/select_table", jsonMap)
+	if err1 != nil {
+		fmt.Println(err1)
+	}
+	fmt.Println(time.Now().Sub(oldTIme))
+	fmt.Println(result)
+
+}
+func insert_json(querystring []string) {
+
+	var jsonStr = `
+	{
+
+	"table":"%s",
+	"body":%s
+	}
+	`
+
+	jsonStr = fmt.Sprintf(jsonStr, querystring[2], querystring[3])
+
+	fmt.Println(jsonStr)
+
+	_port, _ := strconv.Atoi(configs.Instance_port)
+	rsocket_json_requests.RequestConfigs("localhost", _port)
+	// result, err1 := rsocket_json_requests.RequestJSON("/"+configs.Instance_name+"/insert", jsonStr)
+	result, err1 := rsocket_json_requests.RequestJSON("/"+configs.Instance_name+"/insert_endpoint", jsonStr)
 	if err1 != nil {
 		fmt.Println(err1)
 	}
@@ -625,6 +694,32 @@ func procedure_data_rsock(querystring []string, outputFile string) {
 
 }
 
+func schema_rsock(querystring []string) {
+
+	var jsonStr = `
+{"query": "%s"}
+	`
+	jsonStr = fmt.Sprintf(jsonStr, querystring[2])
+
+	fmt.Println(jsonStr)
+
+	jsonMap := make(map[string]interface{})
+	err := json.Unmarshal([]byte(jsonStr), &jsonMap)
+
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println(jsonMap)
+	_port, _ := strconv.Atoi(configs.Instance_port)
+	rsocket_json_requests.RequestConfigs("localhost", _port)
+	result, err1 := rsocket_json_requests.RequestJSON("/"+configs.Instance_name+"/execute_schema_command", jsonMap)
+	if err1 != nil {
+		fmt.Println(err1)
+	}
+	fmt.Println(result)
+
+}
 func testConcurrency() {
 	fmt.Println("Concurrency Test")
 	textQuery := []string{"select client_address, client_number from table3 where client_number < 10000", "select client_address, client_number from table3 where client_number > 91000"}
